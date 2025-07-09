@@ -1,0 +1,1823 @@
+{
+  "name": "Document Parsing MultiModal",
+  "nodes": [
+    {
+      "parameters": {
+        "sortFieldsUi": {
+          "sortField": [
+            {
+              "fieldName": "fileName"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a15d074d-daf6-4ad3-956d-75c25aa5853e",
+      "name": "Sort Pages",
+      "type": "n8n-nodes-base.sort",
+      "position": [
+        -420,
+        320
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {},
+      "id": "458442e8-bcab-4e45-9255-959a20bb587a",
+      "name": "Extract Zip File",
+      "type": "n8n-nodes-base.compression",
+      "position": [
+        -860,
+        320
+      ],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "jsCode": "let results = [];\n\nfor (item of items) {\n    for (key of Object.keys(item.binary)) {\n        results.push({\n            json: {\n                fileName: item.binary[key].fileName\n            },\n            binary: {\n                data: item.binary[key],\n            }\n        });\n    }\n}\n\nreturn results;"
+      },
+      "id": "460a5d8a-a9c5-48e8-81ad-b54e6e252350",
+      "name": "Images To List",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -640,
+        320
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "formTitle": "Document Parser",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Document",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".pdf",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -1360,
+        320
+      ],
+      "id": "66b89b8a-dcb4-4ee9-ab66-9932ae9c3430",
+      "name": "On form submission",
+      "webhookId": "19132f3d-e29e-47ff-8025-7814cb0527b8"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8080/api/v1/convert/pdf/img",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "fileInput",
+              "inputDataFieldName": "Document"
+            },
+            {
+              "name": "imageFormat",
+              "value": "jpg"
+            },
+            {
+              "name": "singleOrMultiple",
+              "value": "multiple"
+            },
+            {
+              "name": "dpi",
+              "value": "300"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "906a3955-9353-4110-aee8-b3e3b56fd1f1",
+      "name": "Split PDF into Images",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        -1100,
+        320
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputString = $input.first().json.output\nconst inputStringLength = inputString.length\nconst validJsonString = inputString.substring(8, inputStringLength - 4)\nreturn {\"output\": JSON.parse(validJsonString)}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        620,
+        140
+      ],
+      "id": "0beb3589-c488-4569-a3bd-01e3df5344ef",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "options": {
+          "systemMessage": "You are an intelligent AI assistant designed to extract structured information from accounting documents such as invoices, receipts, and payment confirmations. Your goal is to output a **valid JSON object** containing important data points that accountants need to review, classify, and comply with accounting and tax regulations.\n\n🧾 The structure of your output JSON is **not fixed**, but it should include as many of the following **key data fields** as can be found or inferred:\n\n#### 🔍 Data From the Document:\n\n* เลขประจำตัวผู้เสียภาษี (Tax ID)\n* วันที่ในเอกสาร (Document date)\n* มูลค่า (Value / Amounts)\n* คำอธิบายสินค้า/บริการ (Description of goods/services)\n* สกุลเงิน (Currency)\n* ชื่อผู้ขาย/ลูกค้า (Vendor/Customer name)\n* ประเภทเอกสาร (Document type: e.g., invoice, receipt)\n\n#### 🌍 Additional Fields To Research or Infer:\n\n* **ประเทศของคู่ค้า** (Country of the other party) → used to determine whether it's a domestic or foreign transaction\n* **หมวดหมู่สินค้า/บริการ** (Product/service category) → helps determine tax treatment (e.g., advertising, software, subcontracting)\n* **บริบทภายในกิจการ** (Business context):\n\n   * ชื่อบริษัทหรือสาขา (Company or branch name)\n   * ประเภทธุรกิจ (Type of business)\n   * VAT registration status\n\n For each field, provide:\n\n * `value`: extracted or inferred data\n * `confidence`: a float between 0.0 and 1.0 representing your confidence level\n\n Use this **confidence scale**:\n\n * ≥ 0.90: Clearly stated or reliably confirmed\n * 0.60–0.89: Likely inferred, not 100% explicit\n * < 0.60: Uncertain or ambiguous\n\n #### ⚠️ regulation\\_flags\n\n Include a `regulation_flags` array for any alerts, comments, or notes that may assist in compliance or classification (e.g., “บริการจากต่างประเทศ อาจต้องจัดเก็บ VAT แทน” / “Service from abroad may require reverse-charge VAT”). Each entry must have:\n\n * `note`: a short description of the regulatory concern\n * `confidence`: confidence in this flag being relevant\n\n🔁 MANDATORY SEARCH TOOL USAGE\nYou must always use the Google Search Tool, even if information appears to be complete in the document. Use it to:\n\nConfirm or classify product/service categories\n\nCheck if the vendor/customer is VAT-registered\n\nDetermine the country of the company from its name or tax ID\n\nCross-check unclear or partial document content\n\nThe tool expects an input \"keyword\" which is your search query\n\nIt returns a list of questions and answers of the **result from Google**. Use it to:\n - Classify goods/services (e.g., is it software or advertising?)\n - Check if a business is VAT-registered\n - Determine country of origin from a company name or Tax ID\n\n⚠️ If something is missing or unclear, **USE** the provided tool to try and find the value. If the value cannot be found, return `null` and assign a low confidence score. Do **not guess** without evidence. Your output must be **only a valid JSON object**, with no explanation or surrounding text.\n\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        200,
+        320
+      ],
+      "id": "61574d6f-72fb-4167-b0c9-2fc779d0abcb",
+      "name": "Extraction and Classification Agent"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        180,
+        540
+      ],
+      "id": "57a502ed-8d33-4dd8-ab02-229790ddc89a",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "xosb0xNXv1U0bSvr",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "transcribe the image to markdown.",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "=You help transcribe documents to markdown, keeping faithful to all text printed and visible to the best of your ability. Ensure you capture all headings, subheadings, titles as well as small print.\nFor any tables found with the document, convert them to markdown tables. If table row descriptions overflow into more than 1 row, concatanate and fit them into a single row. If two or more tables are adjacent horizontally, stack the tables vertically instead. There should be a newline after every markdown table.\nFor any graphics, use replace with a description of the image. Images of scanned checks should be converted to the phrase \"<scanned image of check>\"."
+            },
+            {
+              "type": "HumanMessagePromptTemplate",
+              "messageType": "imageBinary"
+            }
+          ]
+        }
+      },
+      "id": "965b3bc1-8361-4f4b-b48b-e60e718447a7",
+      "name": "Transcribe to Markdown",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "position": [
+        -160,
+        320
+      ],
+      "typeVersion": 1.4
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Use this tool to fetch all available documents, including the table schema if the file is a CSV or Excel file.",
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "document_metadata",
+          "mode": "list",
+          "cachedResultName": "document_metadata"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.5,
+      "position": [
+        -620,
+        1080
+      ],
+      "id": "c3a81850-f9d7-454e-a0e1-cc6ff5978a0f",
+      "name": "List Documents",
+      "credentials": {
+        "postgres": {
+          "id": "l5jXm9tKVGoyrr6g",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Given a file ID, fetches the text from the document.",
+        "operation": "executeQuery",
+        "query": "SELECT \n    string_agg(text, ' ') as document_text\nFROM documents_pg\n  WHERE metadata->>'file_id' = $1\nGROUP BY metadata->>'file_id';",
+        "options": {
+          "queryReplacement": "={{ $fromAI('file_id') }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.5,
+      "position": [
+        -480,
+        1080
+      ],
+      "id": "32fd3f3e-f6db-4a3b-8536-c6bd0dc59aaa",
+      "name": "Get File Contents",
+      "credentials": {
+        "postgres": {
+          "id": "l5jXm9tKVGoyrr6g",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Run a SQL query - use this to query from the document_rows table once you know the file ID (which is the file path) you are querying. dataset_id is the file_id (file path) and you are always using the row_data for filtering, which is a jsonb field that has all the keys from the file schema given in the document_metadata table.\n\nExample query:\n\nSELECT AVG((row_data->>'revenue')::numeric)\nFROM document_rows\nWHERE dataset_id = '/data/shared/document.csv';\n\nExample query 2:\n\nSELECT \n    row_data->>'category' as category,\n    SUM((row_data->>'sales')::numeric) as total_sales\nFROM dataset_rows\nWHERE dataset_id = '/data/shared/document2.csv'\nGROUP BY row_data->>'category';",
+        "operation": "executeQuery",
+        "query": "{{ $fromAI('sql_query') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.5,
+      "position": [
+        -320,
+        1080
+      ],
+      "id": "c3dfe402-2e53-446b-9fc5-d48df1b01327",
+      "name": "Query Document Rows",
+      "credentials": {
+        "postgres": {
+          "id": "l5jXm9tKVGoyrr6g",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "qllama/multilingual-e5-small:latest"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        100,
+        1100
+      ],
+      "id": "80ddc29d-267f-4983-9275-6601c62ae9ca",
+      "name": "Embeddings Ollama1",
+      "credentials": {
+        "ollamaApi": {
+          "id": "D3rRywd6SK0PqNpn",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolName": "documents",
+        "toolDescription": "Use RAG to look up information in the knowledgebase.",
+        "tableName": "documents_pg",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        900
+      ],
+      "id": "f10a0c7f-d847-4c0b-ad29-2e65bbd44f1a",
+      "name": "Postgres PGVector Store1",
+      "credentials": {
+        "postgres": {
+          "id": "l5jXm9tKVGoyrr6g",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        520
+      ],
+      "id": "17277346-9ca2-41ba-8dbe-b72b4d6996a9",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "xosb0xNXv1U0bSvr",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $json.data || $json.text || $json.concatenated_data }}",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "=file_id",
+                "value": "={{ $('Set File ID').first().json.file_id }}"
+              },
+              {
+                "name": "file_title",
+                "value": "={{ $('Set File ID').first().json.file_title }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "eb5defd8-045c-4c94-adf1-7b75db5a999a",
+      "name": "Default Data Loader",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1,
+      "position": [
+        780,
+        1920
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "text",
+        "binaryPropertyName": "Knowledge_File",
+        "options": {}
+      },
+      "id": "682826db-bb2e-4b4f-9884-33f8928dc48b",
+      "name": "Extract Document Text",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -20,
+        1920
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "10646eae-ae46-4327-a4dc-9987c2d76173",
+              "name": "file_id",
+              "value": "={{ $json['Knowledge File'].filename }}",
+              "type": "string"
+            },
+            {
+              "id": "f4536df5-d0b1-4392-bf17-b8137fb31a44",
+              "name": "file_type",
+              "value": "={{ $json['Knowledge File'].filename.split('.').pop(); }}",
+              "type": "string"
+            },
+            {
+              "id": "77d782de-169d-4a46-8a8e-a3831c04d90f",
+              "name": "file_title",
+              "value": "={{ $json['Knowledge File'].filename.split('.')[0]; }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7b68be64-e256-4fcb-b642-2fe9d28eac90",
+      "name": "Set File ID",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1540,
+        1600
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "Knowledge_File",
+        "options": {}
+      },
+      "id": "73afb8d0-157a-4729-a6b9-a3db12ba5bf7",
+      "name": "Extract PDF Text",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -20,
+        1360
+      ]
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "id": "072e298e-2267-498b-96b0-3f9fe0922df0",
+      "name": "Aggregate",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        20,
+        1540
+      ]
+    },
+    {
+      "parameters": {
+        "fieldsToSummarize": {
+          "values": [
+            {
+              "aggregation": "concatenate",
+              "field": "data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d4169c28-1f83-447a-949d-9246b6050f25",
+      "name": "Summarize",
+      "type": "n8n-nodes-base.summarize",
+      "typeVersion": 1,
+      "position": [
+        220,
+        1620
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Set File ID').item.json.file_type }}",
+                    "rightValue": "pdf",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "ebaacac3-a505-4cd0-ba4b-d97a295abfeb"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "2ae7faa7-a936-4621-a680-60c512163034",
+                    "leftValue": "={{ $('Set File ID').item.json.file_type }}",
+                    "rightValue": "xlsx",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "fc193b06-363b-4699-a97d-e5a850138b0e",
+                    "leftValue": "={{ $('Set File ID').item.json.file_type }}",
+                    "rightValue": "=csv",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "b69f5605-0179-4b02-9a32-e34bb085f82d",
+                    "leftValue": "={{ $('Set File ID').item.json.file_type }}",
+                    "rightValue": "txt",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      },
+      "id": "77c4b969-63f9-48f6-9d83-b5c69288351f",
+      "name": "Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        -680,
+        1580
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "binaryPropertyName": "Knowledge_File",
+        "options": {}
+      },
+      "id": "f0a46f8c-9ec7-4a3b-b2dd-93de05d98fe3",
+      "name": "Extract from Excel",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        1540
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f422e2e0-381c-46ea-8f38-3f58c501d8b9",
+              "name": "schema",
+              "value": "={{ $('Extract from Excel').isExecuted ? $('Extract from Excel').first().json.keys().toJsonString() : $('Extract from CSV').first().json.keys().toJsonString() }}",
+              "type": "string"
+            },
+            {
+              "id": "bb07c71e-5b60-4795-864c-cc3845b6bc46",
+              "name": "data",
+              "value": "={{ $json.concatenated_data }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        660,
+        1480
+      ],
+      "id": "e4e11f11-b1b7-4cad-9a4c-c2ec3847a48c",
+      "name": "Set Schema"
+    },
+    {
+      "parameters": {
+        "binaryPropertyName": "Knowledge_File",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        1720
+      ],
+      "id": "8aa336a1-5111-40c6-acfb-5a94710a5c1e",
+      "name": "Extract from CSV"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "document_metadata",
+          "mode": "list",
+          "cachedResultName": "document_metadata"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Set File ID').item.json.file_id }}",
+            "title": "={{ $('Set File ID').item.json.file_title }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": true,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "schema",
+              "displayName": "schema",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -1040,
+        1460
+      ],
+      "id": "9bfac2ae-6c08-436d-aaed-305f8541358f",
+      "name": "Insert Document Metadata",
+      "executeOnce": true,
+      "credentials": {
+        "postgres": {
+          "id": "l5jXm9tKVGoyrr6g",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "document_rows",
+          "mode": "list",
+          "cachedResultName": "document_rows"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "dataset_id": "={{ $('Set File ID').item.json.file_id }}",
+            "row_data": "={{ $json.toJsonString().replaceAll(/'/g, \"''\") }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "dataset_id",
+              "displayName": "dataset_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_data",
+              "displayName": "row_data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        20,
+        1720
+      ],
+      "id": "9fb2f5ec-260f-427d-af49-c39caa95569e",
+      "name": "Insert Table Rows",
+      "credentials": {
+        "postgres": {
+          "id": "l5jXm9tKVGoyrr6g",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "document_metadata",
+          "mode": "list",
+          "cachedResultName": "document_metadata"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Set File ID').item.json.file_id }}",
+            "schema": "={{ $json.schema }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": true,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "schema",
+              "displayName": "schema",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        880,
+        1480
+      ],
+      "id": "63d29829-4f47-4865-8279-eac207dff2b5",
+      "name": "Update Schema for Document Metadata",
+      "credentials": {
+        "postgres": {
+          "id": "l5jXm9tKVGoyrr6g",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "qllama/multilingual-e5-small:latest"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        540,
+        1920
+      ],
+      "id": "a8ec74ef-b164-477e-b8ef-ecf04655b661",
+      "name": "Embeddings Ollama",
+      "credentials": {
+        "ollamaApi": {
+          "id": "D3rRywd6SK0PqNpn",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chunkSize": 400,
+        "chunkOverlap": 50,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        680,
+        2040
+      ],
+      "id": "615c6108-8898-4fae-8e8b-39243e102637",
+      "name": "Recursive Character Text Splitter"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DO $$\nBEGIN\n    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'documents_pg') THEN\n        EXECUTE 'DELETE FROM documents_pg WHERE metadata->>''file_id'' LIKE ''%' || $1 || '%''';\n    END IF;\nEND\n$$;",
+        "options": {
+          "queryReplacement": "={{ $json.file_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -1360,
+        1460
+      ],
+      "id": "65023f66-8ffc-4e20-95f1-b1b8b6a6778d",
+      "name": "Delete Old Doc Records",
+      "credentials": {
+        "postgres": {
+          "id": "l5jXm9tKVGoyrr6g",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM document_rows\nWHERE dataset_id LIKE '%' || $1 || '%';",
+        "options": {
+          "queryReplacement": "={{ $('Set File ID').item.json.file_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -1200,
+        1600
+      ],
+      "id": "37a94afe-198f-4a7a-9e7a-5de624e8e2d5",
+      "name": "Delete Old Data Records",
+      "credentials": {
+        "postgres": {
+          "id": "l5jXm9tKVGoyrr6g",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "tableName": "documents_pg",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1,
+      "position": [
+        660,
+        1700
+      ],
+      "id": "eacf65d5-4f0f-4061-8316-39986e6b8f15",
+      "name": "Postgres PGVector Store",
+      "credentials": {
+        "postgres": {
+          "id": "l5jXm9tKVGoyrr6g",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -840,
+        1600
+      ],
+      "id": "0903796b-5688-4f52-b2a9-e57699a867fd",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "formTitle": "Upload Knowledge File",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Knowledge File",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -1920,
+        1440
+      ],
+      "id": "27b50d43-4424-4f4d-a6e5-234e1365bf35",
+      "name": "On form submission1",
+      "webhookId": "565d75d0-327b-4bcf-8f47-7ca7658eaf66"
+    },
+    {
+      "parameters": {
+        "content": "## Tool to Add a Google Drive File to Vector DB",
+        "height": 867,
+        "width": 3073,
+        "color": 5
+      },
+      "id": "a4545be0-a0da-4da4-bd8c-80d841522a8b",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1980,
+        1340
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Run Each Node Once to Set Up Database Tables",
+        "height": 300,
+        "width": 680,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1980,
+        1020
+      ],
+      "typeVersion": 1,
+      "id": "ef5dc857-0ec0-4e78-b282-0f9125aedda8",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "CREATE TABLE document_metadata (\n    id TEXT PRIMARY KEY,\n    title TEXT,\n    created_at TIMESTAMP DEFAULT NOW(),\n    schema TEXT\n);",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -1860,
+        1120
+      ],
+      "id": "71fbaba9-24c6-42ad-bc77-42016fa2a459",
+      "name": "Create Document Metadata Table",
+      "credentials": {
+        "postgres": {
+          "id": "l5jXm9tKVGoyrr6g",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "CREATE TABLE document_rows (\n    id SERIAL PRIMARY KEY,\n    dataset_id TEXT REFERENCES document_metadata(id),\n    row_data JSONB  -- Store the actual row data\n);",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -1560,
+        1120
+      ],
+      "id": "a3f40410-26d7-4170-a948-ee75787df4ac",
+      "name": "Create Document Rows Table (for Tabular Data)",
+      "credentials": {
+        "postgres": {
+          "id": "l5jXm9tKVGoyrr6g",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -740,
+        1080
+      ],
+      "id": "b036727f-251f-447a-b1cd-e0e109e706ff",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "xosb0xNXv1U0bSvr",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}",
+        "options": {
+          "systemMessage": "You are a personal assistant who helps answer questions from a corpus of documents. The documents are either text based (Txt, docs, extracted PDFs, etc.) or tabular data (CSVs or Excel documents).\n\nYou are given tools to perform RAG in the 'documents' table, look up the documents available in your knowledge base in the 'document_metadata' table, extract all the text from a given document, and query the tabular files with SQL in the 'document_rows' table.\n\nAlways start by performing RAG unless the users asks you to check a document or the question requires a SQL query for tabular data (fetching a sum, finding a max, something a RAG lookup would be unreliable for). If RAG doesn't help, then look at the documents that are available to you, find a few that you think would contain the answer, and then analyze those.\n\nAlways tell the user if you didn't find the answer. Don't make something up just to please them."
+        }
+      },
+      "id": "8b28e7ef-63b0-49f8-9486-3358b97e5df9",
+      "name": "Retriever Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "position": [
+        -680,
+        860
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.output }}",
+        "options": {
+          "systemMessage": "> You are the **Orchestrator Agent** in a multi-agent AI system responsible for helping human accountants process accounting documents correctly according to relevant rules and standards (e.g., TFRS, TAS, Thai tax laws).\n>\n> You will receive, as input, a structured **JSON object** produced by an extraction agent. This JSON contains key details extracted from an accounting document (such as invoices or receipts), where each field includes:\n>\n> * `value`: the extracted data\n> * `confidence`: a float score (0.0–1.0) indicating how certain the data is\n>\n> Your responsibilities are to:\n>\n> 1. **Analyze the input JSON** and identify:\n>\n> * Key information that determines how the document should be processed\n>\n> * Any low-confidence fields or regulatory flags\n>\n> * Questions that must be answered to ensure correct accounting treatment (e.g., VAT handling, expense categorization, documentation)\n>\n> 2. **Generate one or more Thai-language search queries** for the **Retriever Agent**. These queries must be precise and tailored to retrieve the most relevant Thai-language regulatory or accounting guidance from the database (TFRS, TAS, Thai Revenue Code, etc.). Use this tool **AS MANY TIMES AS POSSIBLE BUT NO MORE THAN 10 TIMES**. Make **MORE SPECIFIC** queries on when previous queries failed to retrieve any data.\n>\n> * Each query must be sent in the following format:\n>\n>   ```json\n>   { \"query\": \"<คำค้นเป็นภาษาไทย>\" }\n>   ```\n>\n> * Each query must be in the form of a **QUESTION** and **NOT** a list of keywords. An example of a **GOOD** query is \"มาตรา 83/6 กล่าวถึงอะไร\". Be **AS SPECIFIC AS POSSIBLE**\n>\n> * The Retriever Agent will return relevant **Thai-language** regulatory text or guidance passages.\n>\n> 3. **Use the retrieved content (in Thai)** along with the input JSON to generate a clear, accurate, and actionable **step-by-step guide** for a human accountant. This guide should include:\n>\n> * How to record and classify the document in the accounting system\n>\n> * Tax treatment (e.g., VAT, withholding tax, reverse charge)\n>\n> * Regulatory checks and documentation required\n>\n> * Recommendations for unclear or low-confidence fields (e.g., verification or escalation)\n>\n> * Refernce to the source of data (document name, page, line, ...) **ALWAYS** include this\n>\n> 4. If the input JSON includes any `regulation_flags`, reflect those concerns in the guide or in additional notes.\n>\n> 📌 Your output should be a valid JSON object in the following format:\n>\n> ```json\n> {\n> ```\n\n\"steps\": \\[\n{ \"step\": 1, \"instruction\": \"...\" },\n{ \"step\": 2, \"instruction\": \"...\" }\n],\n\"notes\": \\[\n\"...\"  // Optional: highlight uncertainties, recommendations, or warnings\n]\n}\n\n```\n>\n>🧠 Guidelines:\n> - **All queries to the Retriever must be in Thai**, based on your understanding of the input.\n> - Use **ONLY** the retrieved Thai sources and extracted document data to justify your recommendations.\n> - Be professional, practical, and specific — your output will be followed by a human accountant.\n> - **NEVER** fabricate regulations; rely only on what you find via the Retriever Agent.\n> - Clearly identify when human confirmation is needed (especially for fields with low confidence).\n>\n>Do not include explanations, formatting instructions, or commentary outside the final JSON outp\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        600,
+        320
+      ],
+      "id": "72a0faa2-c18c-4a3e-a1a3-620cfc84c0da",
+      "name": "Orchestrator Agent"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        580,
+        520
+      ],
+      "id": "3cd193b8-6914-49a3-8d9b-4f4ce6241257",
+      "name": "Google Gemini Chat Model3",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "xosb0xNXv1U0bSvr",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputString = $input.first().json.output\nconst inputStringLength = inputString.length\nconst validJsonString = inputString.substring(8, inputStringLength - 4)\nreturn {\"output\": JSON.parse(validJsonString)}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        320
+      ],
+      "id": "d9e268b1-668b-480f-a51c-9cafcf5a3b6c",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "description": "Call this tool to search for information on Google. Use this tool to verify or infer missing details (e.g., to determine if an item is a product or a service, or whether a vendor is registered in a specific country).",
+        "workflowId": {
+          "__rl": true,
+          "value": "uz7rDZMnu56S7H3e",
+          "mode": "list",
+          "cachedResultName": "Google Search and Scrape"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "query": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('query', ``, 'string') }}"
+          },
+          "matchingColumns": [
+            "query"
+          ],
+          "schema": [
+            {
+              "id": "query",
+              "displayName": "query",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        380,
+        540
+      ],
+      "id": "9b818a29-19f2-4bd8-ab8b-d7e7314e4985",
+      "name": "Google Search"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "YOf92zVVXxgQKcKY",
+          "mode": "list",
+          "cachedResultName": "Retriever Agent"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "chatInput": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('chatInput', ``, 'string') }}"
+          },
+          "matchingColumns": [
+            "chatInput"
+          ],
+          "schema": [
+            {
+              "id": "chatInput",
+              "displayName": "chatInput",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        820,
+        520
+      ],
+      "id": "558957bd-5b4c-4743-8df7-8697eab82f4b",
+      "name": "Retriever Agent2"
+    }
+  ],
+  "pinData": {
+    "Extraction and Classification Agent": [
+      {
+        "json": {
+          "output": "```json\n{\n  \"เลขประจำตัวผู้เสียภาษี\": {\n    \"value\": null,\n    \"confidence\": 0.5\n  },\n  \"วันที่ในเอกสาร\": {\n    \"value\": \"May 14, 2025\",\n    \"confidence\": 1.0\n  },\n  \"มูลค่า\": {\n    \"value\": 97.00,\n    \"confidence\": 1.0\n  },\n  \"คำอธิบายสินค้า/บริการ\": {\n    \"value\": \"Gumloop Starter Plan May 14 – Jun 14, 2025\",\n    \"confidence\": 1.0\n  },\n  \"สกุลเงิน\": {\n    \"value\": \"$\",\n    \"confidence\": 1.0\n  },\n  \"ชื่อผู้ขาย/ลูกค้า\": {\n    \"vendor_name\": {\n      \"value\": \"AgentHub Canada Inc.\",\n      \"confidence\": 1.0\n    },\n    \"customer_name\": {\n      \"value\": \"SCG\",\n      \"confidence\": 0.95\n    }\n  },\n  \"ประเภทเอกสาร\": {\n    \"value\": \"Receipt\",\n    \"confidence\": 1.0\n  },\n  \"ประเทศของคู่ค้า\": {\n    \"vendor_country\": {\n      \"value\": \"Canada\",\n      \"confidence\": 1.0\n    },\n    \"customer_country\": {\n      \"value\": \"Thailand\",\n      \"confidence\": 0.95\n    }\n  },\n  \"หมวดหมู่สินค้า/บริการ\": {\n    \"value\": \"Software / Automation Platform\",\n    \"confidence\": 0.95\n  },\n  \"บริบทภายในกิจการ\": {\n    \"ชื่อบริษัทหรือสาขา\": {\n      \"value\": \"SCG\",\n      \"confidence\": 0.95\n    },\n    \"ประเภทธุรกิจ\": {\n      \"value\": \"Conglomerate (Cement, Building Materials, Chemicals etc.)\",\n      \"confidence\": 0.95\n    },\n    \"VAT_registration_status\": {\n      \"vendor\": {\n        \"value\": null,\n        \"confidence\": 0.5\n      },\n      \"customer\": {\n        \"value\": true,\n        \"confidence\": 0.85\n      }\n    }\n  },\n  \"regulation_flags\": [\n    {\n      \"note\": \"Service from abroad may require reverse-charge VAT\",\n      \"confidence\": 0.95\n    }\n  ]\n}\n```"
+        }
+      }
+    ],
+    "Transcribe to Markdown": [
+      {
+        "json": {
+          "text": "```markdown\n# Receipt\n\n**Invoice number** MJ10CLTE-0001\n**Receipt number** 2407-0546\n**Date paid** May 14, 2025\n**Payment method** Visa - 6908\n\n**AgentHub Canada Inc.**\n56a Mill Street East\nUnit 293\nActon Ontario L7J1H3\nCanada\n+1 438-882-1861\n\n**Bill to**\nnapatsri@scg.com\n\n**$97.00 paid on May 14, 2025**\n\n| Description                 | Qty    | Unit price | Amount |\n| --------------------------- | ------ | ---------- | ------ |\n| Gumloop Starter Plan May 14 – Jun 14, 2025 | 30,000 |          | $97.00 |\n| First 30000 Flat fee for first 30000 | 30,000 | $0.00      | $0.00  |\n|                               | 0      |            | $97.00 |\n\nSubtotal $97.00\nTotal $97.00\nAmount paid $97.00\n\n<image of the letter G>\n\n2407-0546 · $97.00 paid on May 14, 2025\nPage 1 of 1\n```"
+        }
+      }
+    ],
+    "Code": [
+      {
+        "json": {
+          "output": {
+            "เลขประจำตัวผู้เสียภาษี": {
+              "value": null,
+              "confidence": 0.5
+            },
+            "วันที่ในเอกสาร": {
+              "value": "May 14, 2025",
+              "confidence": 1
+            },
+            "มูลค่า": {
+              "value": 97,
+              "confidence": 1
+            },
+            "คำอธิบายสินค้า/บริการ": {
+              "value": "Gumloop Starter Plan May 14 – Jun 14, 2025",
+              "confidence": 1
+            },
+            "สกุลเงิน": {
+              "value": "$",
+              "confidence": 1
+            },
+            "ชื่อผู้ขาย/ลูกค้า": {
+              "vendor_name": {
+                "value": "AgentHub Canada Inc.",
+                "confidence": 1
+              },
+              "customer_name": {
+                "value": "SCG",
+                "confidence": 0.95
+              }
+            },
+            "ประเภทเอกสาร": {
+              "value": "Receipt",
+              "confidence": 1
+            },
+            "ประเทศของคู่ค้า": {
+              "vendor_country": {
+                "value": "Canada",
+                "confidence": 1
+              },
+              "customer_country": {
+                "value": "Thailand",
+                "confidence": 0.95
+              }
+            },
+            "หมวดหมู่สินค้า/บริการ": {
+              "value": "Software / Automation Platform",
+              "confidence": 0.95
+            },
+            "บริบทภายในกิจการ": {
+              "ชื่อบริษัทหรือสาขา": {
+                "value": "SCG",
+                "confidence": 0.95
+              },
+              "ประเภทธุรกิจ": {
+                "value": "Conglomerate (Cement, Building Materials, Chemicals etc.)",
+                "confidence": 0.95
+              },
+              "VAT_registration_status": {
+                "vendor": {
+                  "value": null,
+                  "confidence": 0.5
+                },
+                "customer": {
+                  "value": true,
+                  "confidence": 0.85
+                }
+              }
+            },
+            "regulation_flags": [
+              {
+                "note": "Service from abroad may require reverse-charge VAT",
+                "confidence": 0.95
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Sort Pages": {
+      "main": [
+        [
+          {
+            "node": "Transcribe to Markdown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Images To List": {
+      "main": [
+        [
+          {
+            "node": "Sort Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Zip File": {
+      "main": [
+        [
+          {
+            "node": "Images To List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Split PDF into Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split PDF into Images": {
+      "main": [
+        [
+          {
+            "node": "Extract Zip File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraction and Classification Agent": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Orchestrator Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Extraction and Classification Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe to Markdown": {
+      "main": [
+        [
+          {
+            "node": "Extraction and Classification Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Documents": {
+      "ai_tool": [
+        [
+          {
+            "node": "Retriever Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get File Contents": {
+      "ai_tool": [
+        [
+          {
+            "node": "Retriever Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Document Rows": {
+      "ai_tool": [
+        [
+          {
+            "node": "Retriever Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Postgres PGVector Store1",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres PGVector Store1": {
+      "ai_tool": [
+        [
+          {
+            "node": "Retriever Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Transcribe to Markdown",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Postgres PGVector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Document Text": {
+      "main": [
+        [
+          {
+            "node": "Postgres PGVector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set File ID": {
+      "main": [
+        [
+          {
+            "node": "Delete Old Doc Records",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract PDF Text": {
+      "main": [
+        [
+          {
+            "node": "Postgres PGVector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Summarize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize": {
+      "main": [
+        [
+          {
+            "node": "Set Schema",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Postgres PGVector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Extract PDF Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract from Excel",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract from CSV",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract Document Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from Excel": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Insert Table Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Schema": {
+      "main": [
+        [
+          {
+            "node": "Update Schema for Document Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from CSV": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Insert Table Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Postgres PGVector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Old Doc Records": {
+      "main": [
+        [
+          {
+            "node": "Delete Old Data Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Old Data Records": {
+      "main": [
+        [
+          {
+            "node": "Insert Document Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On form submission1": {
+      "main": [
+        [
+          {
+            "node": "Set File ID",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Retriever Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Orchestrator Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Orchestrator Agent": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Search": {
+      "ai_tool": [
+        [
+          {
+            "node": "Extraction and Classification Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retriever Agent2": {
+      "ai_tool": [
+        [
+          {
+            "node": "Orchestrator Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "aecd8583-fec3-4161-83ae-8f2ab507259b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "24cb73b55c22d9657b5fdc11799f6c92936b55c967240a9d40cd299a6a7a255a"
+  },
+  "id": "SUXmR4ScMJ3FqFwu",
+  "tags": []
+}

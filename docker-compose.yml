@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  db:
+    hostname: db
+    image: ankane/pgvector 
+    ports:
+      - 5555:5432
+    restart: always
+    environment:
+      - POSTGRES_DB=vector_db
+      - POSTGRES_USER=testuser
+      - POSTGRES_PASSWORD=testpwd
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+  
+  stirling-pdf:
+    image: stirlingtools/stirling-pdf:latest
+    ports:
+      - 8080:8080
+    restart: always
