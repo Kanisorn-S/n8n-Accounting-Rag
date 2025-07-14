@@ -16,7 +16,7 @@
       "name": "Sort Pages",
       "type": "n8n-nodes-base.sort",
       "position": [
-        -420,
+        -660,
         320
       ],
       "typeVersion": 1
@@ -27,7 +27,7 @@
       "name": "Extract Zip File",
       "type": "n8n-nodes-base.compression",
       "position": [
-        -860,
+        -1100,
         320
       ],
       "typeVersion": 1.1
@@ -40,7 +40,7 @@
       "name": "Images To List",
       "type": "n8n-nodes-base.code",
       "position": [
-        -640,
+        -880,
         320
       ],
       "typeVersion": 2
@@ -64,7 +64,7 @@
       "type": "n8n-nodes-base.formTrigger",
       "typeVersion": 2.2,
       "position": [
-        -1360,
+        -1600,
         320
       ],
       "id": "66b89b8a-dcb4-4ee9-ab66-9932ae9c3430",
@@ -104,7 +104,7 @@
       "name": "Split PDF into Images",
       "type": "n8n-nodes-base.httpRequest",
       "position": [
-        -1100,
+        -1340,
         320
       ],
       "typeVersion": 4.2
@@ -162,7 +162,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "transcribe the image to markdown.",
+        "text": "=transcribe the image to markdown. use information from the **CONTENT** block if needed.\n### CONTENT\n{{ $json.text }}\n### END CONTENT",
         "messages": {
           "messageValues": [
             {
@@ -206,8 +206,8 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.5,
       "position": [
-        -620,
-        1080
+        900,
+        1020
       ],
       "id": "c3a81850-f9d7-454e-a0e1-cc6ff5978a0f",
       "name": "List Documents",
@@ -231,8 +231,8 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.5,
       "position": [
-        -480,
-        1080
+        1040,
+        1020
       ],
       "id": "32fd3f3e-f6db-4a3b-8536-c6bd0dc59aaa",
       "name": "Get File Contents",
@@ -254,8 +254,8 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.5,
       "position": [
-        -320,
-        1080
+        1200,
+        1020
       ],
       "id": "c3dfe402-2e53-446b-9fc5-d48df1b01327",
       "name": "Query Document Rows",
@@ -273,8 +273,8 @@
       "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
       "typeVersion": 1,
       "position": [
-        100,
-        1100
+        1560,
+        1040
       ],
       "id": "80ddc29d-267f-4983-9275-6601c62ae9ca",
       "name": "Embeddings Ollama1",
@@ -296,8 +296,8 @@
       "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
       "typeVersion": 1,
       "position": [
-        -80,
-        900
+        1380,
+        840
       ],
       "id": "f10a0c7f-d847-4c0b-ad29-2e65bbd44f1a",
       "name": "Postgres PGVector Store1",
@@ -379,19 +379,19 @@
             {
               "id": "10646eae-ae46-4327-a4dc-9987c2d76173",
               "name": "file_id",
-              "value": "={{ $json['Knowledge File'].filename }}",
+              "value": "={{ $binary.data.fileName }}",
               "type": "string"
             },
             {
               "id": "f4536df5-d0b1-4392-bf17-b8137fb31a44",
               "name": "file_type",
-              "value": "={{ $json['Knowledge File'].filename.split('.').pop(); }}",
+              "value": "={{ $binary.data.fileType }}",
               "type": "string"
             },
             {
               "id": "77d782de-169d-4a46-8a8e-a3831c04d90f",
               "name": "file_title",
-              "value": "={{ $json['Knowledge File'].filename.split('.')[0]; }}",
+              "value": "={{ $binary.data.fileName.split('.')[0]; }}",
               "type": "string"
             }
           ]
@@ -410,7 +410,6 @@
     {
       "parameters": {
         "operation": "pdf",
-        "binaryPropertyName": "Knowledge_File",
         "options": {}
       },
       "id": "73afb8d0-157a-4729-a6b9-a3db12ba5bf7",
@@ -1011,7 +1010,6 @@
             {
               "fieldLabel": "Knowledge File",
               "fieldType": "file",
-              "multipleFiles": false,
               "requiredField": true
             }
           ]
@@ -1110,8 +1108,8 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
       "position": [
-        -740,
-        1080
+        760,
+        1020
       ],
       "id": "b036727f-251f-447a-b1cd-e0e109e706ff",
       "name": "Google Gemini Chat Model2",
@@ -1135,8 +1133,8 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.6,
       "position": [
-        -680,
-        860
+        860,
+        800
       ]
     },
     {
@@ -1266,117 +1264,108 @@
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
       "position": [
-        820,
-        520
+        840,
+        620
       ],
       "id": "558957bd-5b4c-4743-8df7-8697eab82f4b",
       "name": "Retriever Agent2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.last().json\nconst binaryData = $input.last().binary\n\nlet output = []\n\nObject.keys(binaryData).forEach( b => {\n  output.push({\n    json: data,\n    binary: { data: binaryData[b]}\n  })\n})\n\nreturn output"
+      },
+      "id": "4da6f585-804e-41a5-8a02-32761e267e37",
+      "name": "Code2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1740,
+        1440
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1680,
+        1820
+      ],
+      "id": "644f36fc-dda5-4891-99a7-ea98e055080d",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "Document",
+        "options": {}
+      },
+      "id": "28a5b336-47d7-46c4-83f4-46e35f62158e",
+      "name": "Extract PDF Text1",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -1040,
+        580
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -440,
+        320
+      ],
+      "id": "3af3a639-9e50-4b11-97b5-aa71b8d76646",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "content": "## Main Document Verification Workflow",
+        "height": 667,
+        "width": 2913,
+        "color": 4
+      },
+      "id": "8268ff02-3acf-41b6-a78f-0928a1e06983",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1660,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Retriever Agent\n\nThis is for display purpose. To edit the retriever agent, edit the subworkflow \"Retriever Agent\"",
+        "height": 700,
+        "width": 1060,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        720,
+        520
+      ],
+      "typeVersion": 1,
+      "id": "0d511356-07f1-46ab-a1ab-838d4a7fedca",
+      "name": "Sticky Note4"
     }
   ],
-  "pinData": {
-    "Extraction and Classification Agent": [
-      {
-        "json": {
-          "output": "```json\n{\n  \"เลขประจำตัวผู้เสียภาษี\": {\n    \"value\": null,\n    \"confidence\": 0.5\n  },\n  \"วันที่ในเอกสาร\": {\n    \"value\": \"May 14, 2025\",\n    \"confidence\": 1.0\n  },\n  \"มูลค่า\": {\n    \"value\": 97.00,\n    \"confidence\": 1.0\n  },\n  \"คำอธิบายสินค้า/บริการ\": {\n    \"value\": \"Gumloop Starter Plan May 14 – Jun 14, 2025\",\n    \"confidence\": 1.0\n  },\n  \"สกุลเงิน\": {\n    \"value\": \"$\",\n    \"confidence\": 1.0\n  },\n  \"ชื่อผู้ขาย/ลูกค้า\": {\n    \"vendor_name\": {\n      \"value\": \"AgentHub Canada Inc.\",\n      \"confidence\": 1.0\n    },\n    \"customer_name\": {\n      \"value\": \"SCG\",\n      \"confidence\": 0.95\n    }\n  },\n  \"ประเภทเอกสาร\": {\n    \"value\": \"Receipt\",\n    \"confidence\": 1.0\n  },\n  \"ประเทศของคู่ค้า\": {\n    \"vendor_country\": {\n      \"value\": \"Canada\",\n      \"confidence\": 1.0\n    },\n    \"customer_country\": {\n      \"value\": \"Thailand\",\n      \"confidence\": 0.95\n    }\n  },\n  \"หมวดหมู่สินค้า/บริการ\": {\n    \"value\": \"Software / Automation Platform\",\n    \"confidence\": 0.95\n  },\n  \"บริบทภายในกิจการ\": {\n    \"ชื่อบริษัทหรือสาขา\": {\n      \"value\": \"SCG\",\n      \"confidence\": 0.95\n    },\n    \"ประเภทธุรกิจ\": {\n      \"value\": \"Conglomerate (Cement, Building Materials, Chemicals etc.)\",\n      \"confidence\": 0.95\n    },\n    \"VAT_registration_status\": {\n      \"vendor\": {\n        \"value\": null,\n        \"confidence\": 0.5\n      },\n      \"customer\": {\n        \"value\": true,\n        \"confidence\": 0.85\n      }\n    }\n  },\n  \"regulation_flags\": [\n    {\n      \"note\": \"Service from abroad may require reverse-charge VAT\",\n      \"confidence\": 0.95\n    }\n  ]\n}\n```"
-        }
-      }
-    ],
-    "Transcribe to Markdown": [
-      {
-        "json": {
-          "text": "```markdown\n# Receipt\n\n**Invoice number** MJ10CLTE-0001\n**Receipt number** 2407-0546\n**Date paid** May 14, 2025\n**Payment method** Visa - 6908\n\n**AgentHub Canada Inc.**\n56a Mill Street East\nUnit 293\nActon Ontario L7J1H3\nCanada\n+1 438-882-1861\n\n**Bill to**\nnapatsri@scg.com\n\n**$97.00 paid on May 14, 2025**\n\n| Description                 | Qty    | Unit price | Amount |\n| --------------------------- | ------ | ---------- | ------ |\n| Gumloop Starter Plan May 14 – Jun 14, 2025 | 30,000 |          | $97.00 |\n| First 30000 Flat fee for first 30000 | 30,000 | $0.00      | $0.00  |\n|                               | 0      |            | $97.00 |\n\nSubtotal $97.00\nTotal $97.00\nAmount paid $97.00\n\n<image of the letter G>\n\n2407-0546 · $97.00 paid on May 14, 2025\nPage 1 of 1\n```"
-        }
-      }
-    ],
-    "Code": [
-      {
-        "json": {
-          "output": {
-            "เลขประจำตัวผู้เสียภาษี": {
-              "value": null,
-              "confidence": 0.5
-            },
-            "วันที่ในเอกสาร": {
-              "value": "May 14, 2025",
-              "confidence": 1
-            },
-            "มูลค่า": {
-              "value": 97,
-              "confidence": 1
-            },
-            "คำอธิบายสินค้า/บริการ": {
-              "value": "Gumloop Starter Plan May 14 – Jun 14, 2025",
-              "confidence": 1
-            },
-            "สกุลเงิน": {
-              "value": "$",
-              "confidence": 1
-            },
-            "ชื่อผู้ขาย/ลูกค้า": {
-              "vendor_name": {
-                "value": "AgentHub Canada Inc.",
-                "confidence": 1
-              },
-              "customer_name": {
-                "value": "SCG",
-                "confidence": 0.95
-              }
-            },
-            "ประเภทเอกสาร": {
-              "value": "Receipt",
-              "confidence": 1
-            },
-            "ประเทศของคู่ค้า": {
-              "vendor_country": {
-                "value": "Canada",
-                "confidence": 1
-              },
-              "customer_country": {
-                "value": "Thailand",
-                "confidence": 0.95
-              }
-            },
-            "หมวดหมู่สินค้า/บริการ": {
-              "value": "Software / Automation Platform",
-              "confidence": 0.95
-            },
-            "บริบทภายในกิจการ": {
-              "ชื่อบริษัทหรือสาขา": {
-                "value": "SCG",
-                "confidence": 0.95
-              },
-              "ประเภทธุรกิจ": {
-                "value": "Conglomerate (Cement, Building Materials, Chemicals etc.)",
-                "confidence": 0.95
-              },
-              "VAT_registration_status": {
-                "vendor": {
-                  "value": null,
-                  "confidence": 0.5
-                },
-                "customer": {
-                  "value": true,
-                  "confidence": 0.85
-                }
-              }
-            },
-            "regulation_flags": [
-              {
-                "note": "Service from abroad may require reverse-charge VAT",
-                "confidence": 0.95
-              }
-            ]
-          }
-        }
-      }
-    ]
-  },
+  "pinData": {},
   "connections": {
     "Sort Pages": {
       "main": [
         [
           {
-            "node": "Transcribe to Markdown",
+            "node": "Merge1",
             "type": "main",
             "index": 0
           }
@@ -1410,6 +1399,11 @@
         [
           {
             "node": "Split PDF into Images",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Extract PDF Text1",
             "type": "main",
             "index": 0
           }
@@ -1741,14 +1735,9 @@
       "main": [
         [
           {
-            "node": "Set File ID",
+            "node": "Code2",
             "type": "main",
             "index": 0
-          },
-          {
-            "node": "Merge",
-            "type": "main",
-            "index": 1
           }
         ]
       ]
@@ -1807,13 +1796,74 @@
           }
         ]
       ]
+    },
+    "Postgres PGVector Store": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code2": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Set File ID",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Extract PDF Text1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Transcribe to Markdown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "aecd8583-fec3-4161-83ae-8f2ab507259b",
+  "versionId": "621715fe-82f1-42c1-acd3-f1cafa83048c",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "24cb73b55c22d9657b5fdc11799f6c92936b55c967240a9d40cd299a6a7a255a"
