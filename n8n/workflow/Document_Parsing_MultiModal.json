@@ -291,7 +291,10 @@
         "toolName": "documents",
         "toolDescription": "Use RAG to look up information in the knowledgebase.",
         "tableName": "documents_pg",
-        "options": {}
+        "topK": 10,
+        "options": {
+          "distanceStrategy": "cosine"
+        }
       },
       "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
       "typeVersion": 1,
@@ -1142,7 +1145,7 @@
         "promptType": "define",
         "text": "={{ $json.output }}",
         "options": {
-          "systemMessage": "> You are the **Orchestrator Agent** in a multi-agent AI system responsible for helping human accountants process accounting documents correctly according to relevant rules and standards (e.g., TFRS, TAS, Thai tax laws).\n>\n> You will receive, as input, a structured **JSON object** produced by an extraction agent. This JSON contains key details extracted from an accounting document (such as invoices or receipts), where each field includes:\n>\n> * `value`: the extracted data\n> * `confidence`: a float score (0.0–1.0) indicating how certain the data is\n>\n> Your responsibilities are to:\n>\n> 1. **Analyze the input JSON** and identify:\n>\n> * Key information that determines how the document should be processed\n>\n> * Any low-confidence fields or regulatory flags\n>\n> * Questions that must be answered to ensure correct accounting treatment (e.g., VAT handling, expense categorization, documentation)\n>\n> 2. **Generate one or more Thai-language search queries** for the **Retriever Agent**. These queries must be precise and tailored to retrieve the most relevant Thai-language regulatory or accounting guidance from the database (TFRS, TAS, Thai Revenue Code, etc.). Use this tool **AS MANY TIMES AS POSSIBLE BUT NO MORE THAN 10 TIMES**. Make **MORE SPECIFIC** queries on when previous queries failed to retrieve any data.\n>\n> * Each query must be sent in the following format:\n>\n>   ```json\n>   { \"query\": \"<คำค้นเป็นภาษาไทย>\" }\n>   ```\n>\n> * Each query must be in the form of a **QUESTION** and **NOT** a list of keywords. An example of a **GOOD** query is \"มาตรา 83/6 กล่าวถึงอะไร\". Be **AS SPECIFIC AS POSSIBLE**\n>\n> * The Retriever Agent will return relevant **Thai-language** regulatory text or guidance passages.\n>\n> 3. **Use the retrieved content (in Thai)** along with the input JSON to generate a clear, accurate, and actionable **step-by-step guide** for a human accountant. This guide should include:\n>\n> * How to record and classify the document in the accounting system\n>\n> * Tax treatment (e.g., VAT, withholding tax, reverse charge)\n>\n> * Regulatory checks and documentation required\n>\n> * Recommendations for unclear or low-confidence fields (e.g., verification or escalation)\n>\n> * Refernce to the source of data (document name, page, line, ...) **ALWAYS** include this\n>\n> 4. If the input JSON includes any `regulation_flags`, reflect those concerns in the guide or in additional notes.\n>\n> 📌 Your output should be a valid JSON object in the following format:\n>\n> ```json\n> {\n> ```\n\n\"steps\": \\[\n{ \"step\": 1, \"instruction\": \"...\" },\n{ \"step\": 2, \"instruction\": \"...\" }\n],\n\"notes\": \\[\n\"...\"  // Optional: highlight uncertainties, recommendations, or warnings\n]\n}\n\n```\n>\n>🧠 Guidelines:\n> - **All queries to the Retriever must be in Thai**, based on your understanding of the input.\n> - Use **ONLY** the retrieved Thai sources and extracted document data to justify your recommendations.\n> - Be professional, practical, and specific — your output will be followed by a human accountant.\n> - **NEVER** fabricate regulations; rely only on what you find via the Retriever Agent.\n> - Clearly identify when human confirmation is needed (especially for fields with low confidence).\n>\n>Do not include explanations, formatting instructions, or commentary outside the final JSON outp\n"
+          "systemMessage": "> You are the **Orchestrator Agent** in a multi-agent AI system responsible for helping human accountants process accounting documents correctly according to relevant rules and standards (e.g., TFRS, TAS, Thai tax laws).\n>\n> You will receive, as input, a structured **JSON object** produced by an extraction agent. This JSON contains key details extracted from an accounting document (such as invoices or receipts), where each field includes:\n>\n> * `value`: the extracted data\n> * `confidence`: a float score (0.0–1.0) indicating how certain the data is\n>\n> Your responsibilities are to:\n>\n> 1. **Analyze the input JSON** and identify:\n>\n> * Key information that determines how the document should be processed\n>\n> * Any low-confidence fields or regulatory flags\n>\n> * Questions that must be answered to ensure correct accounting treatment (e.g., VAT handling, expense categorization, documentation)\n>\n> 2. **Generate one or more Thai-language search queries** for the **Retriever Agent**. These queries must be precise and tailored to retrieve the most relevant Thai-language regulatory or accounting guidance from the database (TFRS, TAS, Thai Revenue Code, etc.). Use this tool **AS MANY TIMES AS POSSIBLE BUT NO MORE THAN 10 TIMES**. Make **MORE SPECIFIC** queries on when previous queries failed to retrieve any data.\n>\n> * Each query must be sent in the following format:\n>\n>   \njson\n>   { \"query\": \"<คำค้นเป็นภาษาไทย>\" }\n>   \n\n>\n> * Each query must be in the form of a **QUESTION** and **NOT** a list of keywords. An example of a **GOOD** query is \"มาตรา 83/6 กล่าวถึงอะไร และมีการดำเนินการทางภาษียังไง\". Be **AS SPECIFIC AS POSSIBLE**\n>\n> * The Retriever Agent will return relevant **Thai-language** regulatory text or guidance passages.\n>\n> 3. **Use the retrieved content (in Thai)** along with the input JSON to generate a clear, accurate, and actionable **step-by-step guide** for a human accountant. This guide should include:\n>\n> * How to record and classify the document in the accounting system\n>\n> * Tax treatment (e.g., VAT, withholding tax, reverse charge)\n>\n> * Regulatory checks and documentation required\n>\n> * Recommendations for unclear or low-confidence fields (e.g., verification or escalation)\n>\n> * Refernce to the source of data (document name, page, line, ...) **ALWAYS** include this\n>\n> 4. If the input JSON includes any `regulation_flags`, reflect those concerns in the guide or in additional notes.\n>\n> 📌 Your output should be a valid JSON object in the following format:\n>\n> \njson\n> {\n> \n\n\n\"steps\": \\[\n{ \"step\": 1, \"instruction\": \"...\" },\n{ \"step\": 2, \"instruction\": \"...\" }\n],\n\"notes\": \\[\n\"...\"  // Optional: highlight uncertainties, recommendations, or warnings\n]\n}\n\n```\n>\n>🧠 Guidelines:\n> - **All queries to the Retriever must be in Thai**, based on your understanding of the input.\n> - Use **ONLY** the retrieved Thai sources and extracted document data to justify your recommendations.\n> - Be professional, practical, and specific — your output will be followed by a human accountant.\n> - **NEVER** fabricate regulations; rely only on what you find via the Retriever Agent.\n> - Clearly identify when human confirmation is needed (especially for fields with low confidence).\n>\n>Do not include explanations, formatting instructions, or commentary outside the final JSON output"
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
@@ -1359,7 +1362,126 @@
       "name": "Sticky Note4"
     }
   ],
-  "pinData": {},
+  "pinData": {
+    "Transcribe to Markdown": [
+      {
+        "json": {
+          "text": "# Invoice\n\n<replace with company logo>\n\nInvoice number MJ1OCLTE-0001\nDate of issue May 14, 2025\nDate due May 14, 2025\n\nAgentHub Canada Inc.\n56a Mill Street East\nUnit 293\nActon Ontario L7J1H3\nCanada\n+1 438-882-1861\n\nBill to\nnapatsri@scg.com\n\n$97.00 USD due May 14, 2025\n\nPay online\n\n| Description               | Qty    | Unit price | Amount  |\n| ------------------------- | ------ | ---------- | ------- |\n| Gumloop Starter Plan May 14 - Jun 14, 2025 | 30,000 |            | $97.00 |\n| First 30000               | 30,000 | $0.00      | $0.00   |\n| Flat fee for first 30000  | 0      |            | $97.00 |\n\nSubtotal $97.00\nTotal $97.00\nAmount due $97.00 USD\n\nMJ1OCLTE-0001 · $97.00 USD due May 14, 2025 Page 1 of 1"
+        }
+      }
+    ],
+    "Extraction and Classification Agent": [
+      {
+        "json": {
+          "output": "```json\n{\n  \"เลขประจำตัวผู้เสียภาษี\": {\n    \"value\": null,\n    \"confidence\": 0.3\n  },\n  \"วันที่ในเอกสาร\": {\n    \"value\": \"May 14, 2025\",\n    \"confidence\": 1.0\n  },\n  \"มูลค่า\": {\n    \"subtotal\": {\n      \"value\": 97.00,\n      \"confidence\": 1.0\n    },\n    \"total\": {\n      \"value\": 97.00,\n      \"confidence\": 1.0\n    },\n    \"amount_due\": {\n      \"value\": 97.00,\n      \"confidence\": 1.0\n    }\n  },\n  \"คำอธิบายสินค้า/บริการ\": {\n    \"value\": \"Gumloop Starter Plan May 14 - Jun 14, 2025, First 30000, Flat fee for first 30000\",\n    \"confidence\": 1.0\n  },\n  \"สกุลเงิน\": {\n    \"value\": \"USD\",\n    \"confidence\": 1.0\n  },\n  \"ชื่อผู้ขาย/ลูกค้า\": {\n    \"vendor_name\": {\n      \"value\": \"AgentHub Canada Inc.\",\n      \"confidence\": 1.0\n    },\n    \"customer_name\": {\n      \"value\": \"SCG\",\n      \"confidence\": 0.9\n    }\n  },\n  \"ประเภทเอกสาร\": {\n    \"value\": \"Invoice\",\n    \"confidence\": 1.0\n  },\n  \"ประเทศของคู่ค้า\": {\n    \"vendor_country\": {\n      \"value\": \"Canada\",\n      \"confidence\": 1.0\n    },\n    \"customer_country\": {\n      \"value\": \"Thailand\",\n      \"confidence\": 0.9\n    }\n  },\n  \"หมวดหมู่สินค้า/บริการ\": {\n    \"value\": \"Software as a Service (SaaS)\",\n    \"confidence\": 0.85\n  },\n  \"บริบทภายในกิจการ\": {\n    \"company_name\": {\n      \"vendor\": {\n        \"value\": \"AgentHub Canada Inc.\",\n        \"confidence\": 1.0\n      },\n      \"customer\": {\n        \"value\": \"SCG (Siam Cement Group)\",\n        \"confidence\": 0.9\n      }\n    },\n    \"type_of_business\": {\n      \"vendor\": {\n        \"value\": \"Software/Platform Provider\",\n        \"confidence\": 0.8\n      },\n      \"customer\": {\n        \"value\": \"Conglomerate (Cement, Building Materials, Energy, Industrial Supplies, Automotive, Agricultural, Chemicals, Paper, Distribution)\",\n        \"confidence\": 0.9\n      }\n    },\n    \"vat_registration_status\": {\n      \"vendor\": {\n        \"value\": null,\n        \"confidence\": 0.4\n      },\n      \"customer\": {\n        \"value\": \"Likely VAT registered (large Thai conglomerate)\",\n        \"confidence\": 0.85\n      }\n    }\n  },\n  \"regulation_flags\": [\n    {\n      \"note\": \"บริการจากต่างประเทศ อาจต้องจัดเก็บ VAT แทน (Service from abroad may require reverse-charge VAT in Thailand).\",\n      \"confidence\": 0.9\n    }\n  ]\n}\n```"
+        }
+      }
+    ],
+    "Code": [
+      {
+        "json": {
+          "output": {
+            "เลขประจำตัวผู้เสียภาษี": {
+              "value": null,
+              "confidence": 0.3
+            },
+            "วันที่ในเอกสาร": {
+              "value": "May 14, 2025",
+              "confidence": 1
+            },
+            "มูลค่า": {
+              "subtotal": {
+                "value": 97,
+                "confidence": 1
+              },
+              "total": {
+                "value": 97,
+                "confidence": 1
+              },
+              "amount_due": {
+                "value": 97,
+                "confidence": 1
+              }
+            },
+            "คำอธิบายสินค้า/บริการ": {
+              "value": "Gumloop Starter Plan May 14 - Jun 14, 2025, First 30000, Flat fee for first 30000",
+              "confidence": 1
+            },
+            "สกุลเงิน": {
+              "value": "USD",
+              "confidence": 1
+            },
+            "ชื่อผู้ขาย/ลูกค้า": {
+              "vendor_name": {
+                "value": "AgentHub Canada Inc.",
+                "confidence": 1
+              },
+              "customer_name": {
+                "value": "SCG",
+                "confidence": 0.9
+              }
+            },
+            "ประเภทเอกสาร": {
+              "value": "Invoice",
+              "confidence": 1
+            },
+            "ประเทศของคู่ค้า": {
+              "vendor_country": {
+                "value": "Canada",
+                "confidence": 1
+              },
+              "customer_country": {
+                "value": "Thailand",
+                "confidence": 0.9
+              }
+            },
+            "หมวดหมู่สินค้า/บริการ": {
+              "value": "Software as a Service (SaaS)",
+              "confidence": 0.85
+            },
+            "บริบทภายในกิจการ": {
+              "company_name": {
+                "vendor": {
+                  "value": "AgentHub Canada Inc.",
+                  "confidence": 1
+                },
+                "customer": {
+                  "value": "SCG (Siam Cement Group)",
+                  "confidence": 0.9
+                }
+              },
+              "type_of_business": {
+                "vendor": {
+                  "value": "Software/Platform Provider",
+                  "confidence": 0.8
+                },
+                "customer": {
+                  "value": "Conglomerate (Cement, Building Materials, Energy, Industrial Supplies, Automotive, Agricultural, Chemicals, Paper, Distribution)",
+                  "confidence": 0.9
+                }
+              },
+              "vat_registration_status": {
+                "vendor": {
+                  "value": null,
+                  "confidence": 0.4
+                },
+                "customer": {
+                  "value": "Likely VAT registered (large Thai conglomerate)",
+                  "confidence": 0.85
+                }
+              }
+            },
+            "regulation_flags": [
+              {
+                "note": "บริการจากต่างประเทศ อาจต้องจัดเก็บ VAT แทน (Service from abroad may require reverse-charge VAT in Thailand).",
+                "confidence": 0.9
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
   "connections": {
     "Sort Pages": {
       "main": [
@@ -1863,7 +1985,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "621715fe-82f1-42c1-acd3-f1cafa83048c",
+  "versionId": "fe154636-c0df-4958-aee1-30c84cd93f64",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "24cb73b55c22d9657b5fdc11799f6c92936b55c967240a9d40cd299a6a7a255a"
